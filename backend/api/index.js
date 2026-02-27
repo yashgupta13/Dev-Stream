@@ -12,37 +12,34 @@ import userRoutes from "../src/routes/user.js";
 
 const app = express();
 
-// ✅ Connect DB (serverless-safe)
+// ✅ Connect DB
 await connectDB();
 
-// ✅ Middleware
 app.use(express.json());
 
-// ✅ CORS configuration (Vercel + Local + Credentials safe)
+// ✅ CORS
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, postman)
       if (!origin) return callback(null, true);
 
-      // Allow localhost (development)
       if (origin === "http://localhost:5173") {
         return callback(null, true);
       }
 
-      // Allow all Vercel deployments (preview + production)
       if (origin.endsWith(".vercel.app")) {
         return callback(null, true);
       }
 
-      // Otherwise block
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
 
-// ✅ Clerk Auth Middleware
+// ✅ VERY IMPORTANT: handle preflight
+app.options("*", cors());
+
 app.use(clerkMiddleware());
 
 // ✅ Routes
@@ -51,10 +48,8 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/users", userRoutes);
 
-// ✅ Health Check
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "API is up and running 🚀" });
 });
 
-// ✅ Export for Vercel (NO app.listen)
 export default app;
