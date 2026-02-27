@@ -12,44 +12,68 @@ import userRoutes from "../src/routes/user.js";
 
 const app = express();
 
-// ✅ Connect DB
+// ✅ Connect DB (serverless-safe)
 await connectDB();
 
+// ✅ JSON parser
 app.use(express.json());
 
-// ✅ CORS
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+/* =========================
+   ✅ PRODUCTION SAFE CORS
+   ========================= */
 
-      if (origin === "http://localhost:5173") {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests without origin (Postman, mobile apps)
+    if (!origin) return callback(null, true);
 
-      if (origin.endsWith(".vercel.app")) {
-        return callback(null, true);
-      }
+    // Allow local dev
+    if (origin === "http://localhost:5173") {
+      return callback(null, true);
+    }
 
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-  })
-);
+    // Allow all Vercel preview & production deployments
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
 
-// ✅ VERY IMPORTANT: handle preflight
-app.options("*", cors());
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+
+// 🔥 VERY IMPORTANT — Handle preflight
+app.options("*", cors(corsOptions));
+
+/* =========================
+   ✅ AUTH
+   ========================= */
 
 app.use(clerkMiddleware());
 
-// ✅ Routes
+/* =========================
+   ✅ ROUTES
+   ========================= */
+
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/users", userRoutes);
 
+/* =========================
+   ✅ HEALTH CHECK
+   ========================= */
+
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "API is up and running 🚀" });
 });
+
+/* =========================
+   ✅ EXPORT (NO app.listen)
+   ========================= */
 
 export default app;
